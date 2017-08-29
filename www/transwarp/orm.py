@@ -43,7 +43,7 @@ class StringField(Field):
 			kw['default'] = ''
 		if not 'ddl' in kw:
 			kw['ddl'] = 'varchar(255)'
-		super(StringField, self).__init(**kw)
+		super(StringField, self).__init__(**kw)
 
 class IntegerField(Field):
 	def __init__(self, **kw):
@@ -56,7 +56,7 @@ class IntegerField(Field):
 class FloatField(Field):
 	def __init__(self, **kw):
 		if not 'default' in kw:
-			kw[default] = 0.0
+			kw['default'] = 0.0
 		if not 'ddl' in kw:
 			kw['ddl'] = 'real'
 		super(FloatField, self).__init__(**kw)
@@ -129,7 +129,7 @@ class ModelMetaclass(type):
 		for k, v in attrs.iteritems():
 			if isinstance(v, Field):
 				if not v.name:
-					v.name = key
+					v.name = k
 				logging.info('Found mappings: %s => %s' % (k, v))
 				#check duplicate primary key:
 				if v.primary_key:
@@ -152,14 +152,14 @@ class ModelMetaclass(type):
 			attrs['__table__'] = name.lower()
 		attrs['__mappings__'] = mappings
 		attrs['__primary_key__'] = primary_key
-		attrs['__sql__'] = lambda self: _gen_sql(attrs['__table'], mappings)
+		attrs['__sql__'] = lambda self: _gen_sql(attrs['__table__'], mappings)
 		for trigger in _triggers:
 			if not trigger in attrs:
 				attrs[trigger] = None
 		return type.__new__(cls, name, bases, attrs)
 
 class Model(dict):
-    '''
+	'''
     Base class for ORM.
 
     >>> class User(Model):
@@ -184,7 +184,7 @@ class Model(dict):
     >>> f.email
     u'orm@db.org'
     >>> f.email = 'changed@db.org'
-    >>> r = f.update() # change email but email is non-updatable!
+    >>> r = f.update()
     >>> len(User.find_all())
     1
     >>> g = User.get(10190)
@@ -196,104 +196,104 @@ class Model(dict):
     >>> import json
     >>> print User().__sql__()
     -- generating SQL for user:
-    create table `user` (
-      `id` bigint not null,
-      `name` varchar(255) not null,
-      `email` varchar(255) not null,
-      `passwd` varchar(255) not null,
-      `last_modified` real not null,
-      primary key(`id`)
+    create table `user`(
+     `id` bigint not null,
+     `name` varchar(255) not null,
+     `email` varchar(255) not null,
+     `passwd` varchar(255) not null,
+     `last_modified` real not null,
+     primary key(`id`)
     );
     '''
 
-    __metaclass__ = ModelMetaclass
+	__metaclass__ = ModelMetaclass
+	
+	def __init__(self, **kw):
+		super(Model, self).__init__(**kw)
 
-    def __init__(self, **kw):
-    	super(Model, self).__init__(**kw)
+	def __getattr__(self, key):
+		try:
+			return self[key]
+		except KeyError:
+			raise AttributeError(r"'Dict' object has no attribute '%s'" % key )
 
-    def __getattr__(self, key):
-    	try:
-    		return self[key]
-    	except KeyError:
-    		raise AttributeError(r"'Dict' object has no attribute '%s'" % key )
+	def __setattr__(self, key, value):
+		self[key] = value
 
-    def __setattr__(self, key, value):
-    	self[key] = value
-
-    @classmethod
-    def get(cls, pk):
-    	'''
-		Get by primary key.
-    	'''
-    	d = db.select_one('select * from %s where %s=?' % (cls.__table__, cls.__primary_key__.name), pk)
-    	return cls(**d) if d else None
-
-    @classmethod
-    def find_first(cls, where, *args):
-        '''
-        Find by where clause and return one result. If multiple results found,
-        only the first one returned. If no result found, return None.
-        '''
-        d = db.select_one('select * from %s %s' % (cls.__table__, where), *args)
-        return cls(**d) if d else None
-
-    @classmethod
-    def find_all(cls, *args):
-    	'''
-		Find all and return list.
-    	'''
-    	L = db.select('select * from `%s`' % cls.__table__)
-    	return [cls(**d) for d in L]
-
-    @classmethod
-    def find_by(cls, where, *args):
-    	'''
-		Fine by where clause and return list.
-    	'''
-    	L = db.select('select * from `%s` %s' % (cls.__table__, where), *args)
-    	return [cls(**d) for d in L]
-
-    @classmethod
-    def count_all(cls):
-    	'''
-		Find by 'select count(pk) from table' and return integer.
-    	'''
-    	return db.select_int('select count(`%s`) from `%s` %s' % (cls.__primary_key__.name, cls.__table__, where), *args)
-
-    def update(self):
-    	self.pre_update and self.pre_update()
-    	L = []
-    	args =[]
-    	for k, v in self.__mappings__.iteritems():
-    		if v.updatable:
-    			if hasattr(self, k):
-    				arg = getattr(self, k)
-    			else:
-    				arg = v.default
-    				setattr(self, k, arg)
-    			L.append('`%s`=?' % k)
-    			args.append(arg)
-    	pk = self.__primary_key__.name
-    	args.append(getattr(self, pk))
-    	db.update('update `%s` where `%s`=?' % (self.__table__, pk), *args)
-    	return self
-
-    def delete(self):
-    	self.pre_delete and self.pre_delete()
-    	pk = self.__primary_key__.name
-    	args = (getattr(self, pk),)
-    	db.update('delete from `%s` where `%s`=?' % (self.__table__, pk), *args)
-
-    def insert(self):
-    	self.pre_insert and self.pre_insert()
-    	params = {}
-    	for k, v in self.__mappings__.iteritems():
-    		if v.insertable:
-    			if not hasattr(self, k):
-    				setattr(self, k, v.default)
-    			params[v.name] = getattr(self, k)
-    	db.insert('%s' % self.__table__, **params)
-    	return self
+	@classmethod
+	def get(cls, pk):
+		'''
+			Get by primary key.
+		'''
+		d = db.select_one('select * from %s where %s=?' % (cls.__table__, cls.__primary_key__.name), pk)
+		return cls(**d) if d else None
+	
+	@classmethod
+	def find_first(cls, where, *args):
+		'''
+		Find by where clause and return one result. If multiple results found,
+		only the first one returned. If no result found, return None.
+		'''
+		d = db.select_one('select * from %s %s' % (cls.__table__, where), *args)
+		return cls(**d) if d else None
+	
+	@classmethod
+	def find_all(cls, *args):
+		'''
+			Find all and return list.
+		'''
+		L = db.select('select * from `%s`' % cls.__table__)
+		return [cls(**d) for d in L]
+	
+	@classmethod
+	def find_by(cls, where, *args):
+		'''
+			Fine by where clause and return list.
+		'''
+		L = db.select('select * from `%s` %s' % (cls.__table__, where), *args)
+		return [cls(**d) for d in L]
+	    
+	@classmethod
+	def count_all(cls):
+		'''
+			Find by 'select count(pk) from table' and return integer.
+		'''
+		return db.select_int('select count(`%s`) from `%s` %s' % (cls.__primary_key__.name, cls.__table__, where), *args)
+	
+	def update(self):
+		self.pre_update and self.pre_update()
+		L = []
+		args =[]
+		for k, v in self.__mappings__.iteritems():
+			if v.updatable:
+				if hasattr(self, k):
+					arg = getattr(self, k)
+				else:
+					arg = v.default
+					setattr(self, k, arg)
+				L.append('`%s`=?' % k)
+				args.append(arg)
+		pk = self.__primary_key__.name
+		args.append(getattr(self, pk))
+		db.update('update `%s` set %s where %s=?' % (self.__table__, ','.join(L), pk), *args)
+		return self
+	
+	def delete(self):
+		self.pre_delete and self.pre_delete()
+		pk = self.__primary_key__.name
+		args = (getattr(self, pk),)
+		db.update('delete from `%s` where `%s`=?' % (self.__table__, pk), *args)
+	
+	def insert(self):
+		self.pre_insert and self.pre_insert()
+		params = {}
+		for k, v in self.__mappings__.iteritems():
+			if v.insertable:
+				if not hasattr(self, k):
+					setattr(self, k, v.default)
+				params[v.name] = getattr(self, k)
+		db.insert('%s' % self.__table__, **params)
+		return self
 
 if __name__ == '__main__':
 	logging.basicConfig(level=logging.DEBUG)
