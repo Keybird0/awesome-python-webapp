@@ -65,7 +65,7 @@ def next_id(t = None):
 	'''
 	if t is None:
 		t = time.time()
-	return '%015d%s000' % (int(t * 1000), uuid.uuid4())  #uuid is what?
+	return '%015d%s000' % (int(t * 1000), uuid.uuid4().hex)
 
 def _profiling(start, sql=''):
 	t = time.time() - start
@@ -193,7 +193,7 @@ def connetion():
 def with_connection(func):
 	'''
 	Decorator for reuse connection.
-	
+
 	@with_connection
 	def foo(*args, **kw):
 	    f1()
@@ -453,7 +453,7 @@ def insert(table, **kw):
 def update(sql, *args):
 	r'''
 	Execute update SQL.
-	
+
 	>>> u1 = dict(id=1000, name='Michael', email='michael@test.org', passwd='123456', last_modified=time.time())
 	>>> insert('user', **u1)
 	1
