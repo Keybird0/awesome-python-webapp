@@ -1387,19 +1387,19 @@ class WSGIApplication(object):
         def __init__(self, document_root = None, **kw):
 		'''
 		Init a WSGIApplication.
-	
+
 		Args:
 		  document_root: document root path.
 		'''
 		self._running =False
 		self._document_root = document_root
-	
+
 		self._interceptors = []
 		self._template_engine = None
-	
+
 		self._get_static = {}
 		self._post_static = {}
-	
+
 		self._get_dynamic = []
 		self._post_dynamic = []
 
@@ -1448,7 +1448,7 @@ class WSGIApplication(object):
                 from wsgiref.simple_server import make_server
                 logging.info('application (%s) will start at %s:%s...' % (self._document_root, host, port))
                 server = make_server(host, port, self.get_wsgi_application(debug=True))
-                server.server_forever()
+                server.serve_forever()
 
         def get_wsgi_application(self, debug=False):
                 self._check_not_running()
@@ -1485,8 +1485,8 @@ class WSGIApplication(object):
 
                 def wsgi(env, start_response):
                         ctx.application = _application
-                        ctx.request = RequestJ(env)
-                        request = ctx.response = Response()
+                        ctx.request = Request(env)
+                        response = ctx.response = Response()
                         try:
                                 r = fn_exec()
                                 if isinstance(r, Template):
